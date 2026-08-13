@@ -10,3 +10,4 @@ All notable changes to this project will be documented in this file. The format 
 - Read-only Linux FUSE view over an Aliyun OSS bucket prefix.
 - Directory pruning, OSS V4 signing, bounded listings, and ETag-bound range reads.
 - Unit, MSRV, dependency-audit, and Linux FUSE end-to-end CI coverage.
+- Tagged GitHub releases with a Linux x86_64 binary and checksums.

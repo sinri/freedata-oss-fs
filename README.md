@@ -29,6 +29,9 @@ cargo build --release --locked
 sudo install -m 0755 target/release/ossfs-ro /usr/local/bin/ossfs-ro
 ```
 
+也可以从对应版本的 GitHub Release 下载 `x86_64-unknown-linux-musl` 预编译包，并使用 Release
+中的 `SHA256SUMS` 校验压缩包。项目不发布 macOS 二进制；FUSE 挂载必须在 Linux 上运行。
+
 ## 配置
 
 复制 [config.example.yaml](config.example.yaml)，然后设置凭证。长期 AccessKey 和 STS 凭证均从
