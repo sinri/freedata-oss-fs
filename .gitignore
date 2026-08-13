@@ -1,0 +1,39 @@
+# Rust build output
+/target/
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs and runtime artifacts
+*.log
+*.pid
+*.pid.lock
+
+# IDEs and editors
+/.idea/
+/.vscode/
+*.swp
+*.swo
+*~
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+
+# Local coverage and profiling output
+/coverage/
+/test-results/
+/.cache/
+/dist/
+/artifacts/
+lcov.info
+*.profraw
+*.profdata
+
+# Patch and merge leftovers
+*.orig
+*.rej

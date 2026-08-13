@@ -1,0 +1,35 @@
+[package]
+name = "ossfs-ro"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.86"
+description = "Read-only FUSE filesystem for a pruned Aliyun OSS directory tree"
+license = "GPL-3.0-only"
+
+[dependencies]
+anyhow = "1.0"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+clap = { version = "4.5", features = ["derive"] }
+env_logger = "0.11"
+globset = "=0.4.16"
+hex = "0.4"
+hmac = "0.12"
+libc = "0.2"
+log = "0.4"
+percent-encoding = "2.3"
+quick-xml = { version = "0.41", features = ["serialize"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+sha2 = "0.10"
+ureq = { version = "2.12", features = ["tls"] }
+url = "2.5"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+fuser = { version = "0.16", default-features = false, features = ["abi-7-31"] }
+
+[dev-dependencies]
+tempfile = "3.14"
+
+[profile.release]
+lto = true
+strip = true

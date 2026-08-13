@@ -1,0 +1,29 @@
+oss:
+  endpoint: https://oss-cn-hangzhou.aliyuncs.com
+  region: cn-hangzhou
+  bucket_path: oss://my-bucket/path/used/as/root/
+  path_style: false
+  anonymous: false
+  access_key_id_env: OSS_ACCESS_KEY_ID
+  access_key_secret_env: OSS_ACCESS_KEY_SECRET
+  session_token_env: OSS_SESSION_TOKEN
+  # Fail closed instead of exhausting memory/time on unexpectedly large listings.
+  max_list_pages: 10000
+  max_objects: 1000000
+  max_list_page_bytes: 8388608
+  max_total_key_bytes: 268435456
+  list_timeout_seconds: 300
+  max_concurrent_requests: 32
+
+prune:
+  deny_directories:
+    - private
+    - teams/*/secret
+    - archive/**
+
+mount:
+  file_mode: 292 # 0444
+  dir_mode: 365  # 0555
+  attribute_ttl_seconds: 60
+  read_only: true
+  allow_other: false
