@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use clap::Parser;
-use ossfs_ro::{
+use freedata_oss_fs::{
     config::{BucketPath, Config},
     oss::{ObjectStore, OssClient},
     tree::{Pruner, Tree},
@@ -10,9 +10,9 @@ use std::{path::PathBuf, sync::Arc};
 #[cfg(target_os = "linux")]
 use anyhow::Context;
 #[cfg(target_os = "linux")]
-use fuser::MountOption;
+use freedata_oss_fs::fs::ReadOnlyFs;
 #[cfg(target_os = "linux")]
-use ossfs_ro::fs::ReadOnlyFs;
+use fuser::MountOption;
 #[cfg(target_os = "linux")]
 use std::time::Duration;
 
@@ -41,7 +41,7 @@ struct Args {
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     if let Err(error) = run() {
-        eprintln!("ossfs-ro: {error:#}");
+        eprintln!("freedata-oss-fs: {error:#}");
         std::process::exit(1);
     }
 }
@@ -119,7 +119,7 @@ fn run() -> Result<()> {
         );
         let mut options = vec![
             MountOption::RO,
-            MountOption::FSName("ossfs-ro".into()),
+            MountOption::FSName("freedata-oss-fs".into()),
             MountOption::Subtype("oss".into()),
             MountOption::DefaultPermissions,
             MountOption::NoDev,

@@ -368,6 +368,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "freedata-oss-fs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "env_logger",
+ "fuser",
+ "globset",
+ "hex",
+ "hmac",
+ "libc",
+ "log",
+ "percent-encoding",
+ "quick-xml",
+ "serde",
+ "serde_yaml",
+ "sha2",
+ "tempfile",
+ "ureq",
+ "url",
+]
+
+[[package]]
 name = "fuser"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -746,30 +770,6 @@ name = "once_cell_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
-
-[[package]]
-name = "ossfs-ro"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "env_logger",
- "fuser",
- "globset",
- "hex",
- "hmac",
- "libc",
- "log",
- "percent-encoding",
- "quick-xml",
- "serde",
- "serde_yaml",
- "sha2",
- "tempfile",
- "ureq",
- "url",
-]
 
 [[package]]
 name = "page_size"

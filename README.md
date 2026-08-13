@@ -1,6 +1,6 @@
-# ossfs-ro
+# freedata-oss-fs
 
-`ossfs-ro` 把指定的阿里云 OSS Bucket Path（`oss://bucket/prefix`）挂载为 Linux
+`freedata-oss-fs` 把指定的阿里云 OSS Bucket Path（`oss://bucket/prefix`）挂载为 Linux
 只读文件系统。挂载前，它按配置对最终目录路径剪枝；某个目录被拒绝后，该目录及整棵子树都不会出现在挂载点中。
 
 核心语义：
@@ -26,7 +26,7 @@
 
 ```bash
 cargo build --release --locked
-sudo install -m 0755 target/release/ossfs-ro /usr/local/bin/ossfs-ro
+sudo install -m 0755 target/release/freedata-oss-fs /usr/local/bin/freedata-oss-fs
 ```
 
 也可以从对应版本的 GitHub Release 下载 `x86_64-unknown-linux-musl` 预编译包，并使用 Release
@@ -92,7 +92,7 @@ Bucket 消耗无限内存与时间；大型 Bucket 应根据实测逐项调整�
 也可在启动时追加规则：
 
 ```bash
-ossfs-ro --config /etc/ossfs-ro.yaml \
+freedata-oss-fs --config /etc/freedata-oss-fs.yaml \
   --deny-directory 'temporary/**' \
   /mnt/oss
 ```
@@ -102,14 +102,14 @@ ossfs-ro --config /etc/ossfs-ro.yaml \
 先验证配置、OSS 凭证、分页列举和剪枝索引，不执行挂载：
 
 ```bash
-RUST_LOG=info ossfs-ro --config /etc/ossfs-ro.yaml --check
+RUST_LOG=info freedata-oss-fs --config /etc/freedata-oss-fs.yaml --check
 ```
 
 前台挂载：
 
 ```bash
 mkdir -p /mnt/oss
-RUST_LOG=info ossfs-ro --config /etc/ossfs-ro.yaml /mnt/oss
+RUST_LOG=info freedata-oss-fs --config /etc/freedata-oss-fs.yaml /mnt/oss
 ```
 
 另一个终端可以执行常规只读 POSIX 操作：
@@ -153,10 +153,10 @@ cargo clippy --locked --all-targets -- -D warnings
 macOS 上也可借助 Docker Desktop 的 Linux VM 运行同一验收：
 
 ```bash
-docker build -f Dockerfile.test -t ossfs-ro-test .
+docker build -f Dockerfile.test -t freedata-oss-fs-test .
 docker run --rm --privileged \
   -e CARGO_TARGET_DIR=/tmp/target-linux \
-  -v "$PWD:/work" ossfs-ro-test
+  -v "$PWD:/work" freedata-oss-fs-test
 ```
 
 ## 许可证

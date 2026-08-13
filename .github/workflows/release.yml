@@ -32,9 +32,9 @@ jobs:
         shell: bash
         run: |
           version=${GITHUB_REF_NAME#v}
-          archive="ossfs-ro-${version}-x86_64-unknown-linux-musl"
+          archive="freedata-oss-fs-${version}-x86_64-unknown-linux-musl"
           mkdir -p "dist/${archive}"
-          install -m 0755 target/x86_64-unknown-linux-musl/release/ossfs-ro "dist/${archive}/"
+          install -m 0755 target/x86_64-unknown-linux-musl/release/freedata-oss-fs "dist/${archive}/"
           install -m 0644 README.md LICENSE config.example.yaml "dist/${archive}/"
           tar -czf "dist/${archive}.tar.gz" -C dist "${archive}"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -66,7 +66,7 @@ jobs:
           else
             gh release create "${GITHUB_REF_NAME}" \
               --verify-tag \
-              --title "ossfs-ro ${GITHUB_REF_NAME#v}" \
+              --title "freedata-oss-fs ${GITHUB_REF_NAME#v}" \
               --generate-notes \
               dist/*.tar.gz dist/SHA256SUMS
           fi

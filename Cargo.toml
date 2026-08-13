@@ -1,5 +1,5 @@
 [package]
-name = "ossfs-ro"
+name = "freedata-oss-fs"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.86"

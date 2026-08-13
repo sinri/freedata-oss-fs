@@ -14,7 +14,7 @@ test_root=$(mktemp -d)
 mountpoint_dir="$test_root/mount"
 request_log="$test_root/requests.ndjson"
 server_log="$test_root/mock.log"
-fs_log="$test_root/ossfs.log"
+fs_log="$test_root/freedata-oss-fs.log"
 mkdir -p "$mountpoint_dir"
 : > "$request_log"
 
@@ -41,7 +41,7 @@ sed \
   config.example.yaml > "$config_file"
 
 cargo build --locked
-binary_path="${CARGO_TARGET_DIR:-target}/debug/ossfs-ro"
+binary_path="${CARGO_TARGET_DIR:-target}/debug/freedata-oss-fs"
 RUST_LOG=info "$binary_path" \
   --config "$config_file" \
   --deny-directory 'cli-hidden/**' \
@@ -51,7 +51,7 @@ fs_pid=$!
 attempt=0
 while ! mountpoint -q "$mountpoint_dir"; do
   if ! kill -0 "$fs_pid" 2>/dev/null; then
-    echo "ossfs-ro exited before mounting" >&2
+    echo "freedata-oss-fs exited before mounting" >&2
     cat "$fs_log" >&2
     exit 1
   fi
