@@ -77,6 +77,9 @@ pub struct PruneConfig {
     /// Globs evaluated against mount-relative directory paths.
     #[serde(default)]
     pub deny_directories: Vec<String>,
+    /// If non-empty, only matching directory subtrees and their ancestors are visible.
+    #[serde(default)]
+    pub allow_directories: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -187,7 +190,10 @@ impl Config {
         if !self.mount.read_only {
             bail!("this filesystem is read-only; mount.read_only must be true");
         }
-        crate::tree::Pruner::new(&self.prune.deny_directories)?;
+        crate::tree::Pruner::with_allow(
+            &self.prune.deny_directories,
+            &self.prune.allow_directories,
+        )?;
         Ok(())
     }
 
@@ -281,5 +287,15 @@ mod tests {
         assert!(config.validate().is_err());
         config.oss.anonymous = true;
         config.validate().unwrap();
+    }
+
+    #[test]
+    fn validates_allow_directory_globs() {
+        let mut config: Config =
+            serde_yaml::from_str(include_str!("../config.example.yaml")).unwrap();
+        config.prune.allow_directories = vec!["docs/**".into()];
+        config.validate().unwrap();
+        config.prune.allow_directories = vec!["[".into()];
+        assert!(config.validate().is_err());
     }
 }

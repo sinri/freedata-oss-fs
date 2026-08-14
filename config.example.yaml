@@ -16,6 +16,8 @@ oss:
   max_concurrent_requests: 32
 
 prune:
+  # When non-empty, only these directory subtrees (plus traversal ancestors) are visible.
+  allow_directories: []
   deny_directories:
     - private
     - teams/*/secret

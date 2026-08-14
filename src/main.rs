@@ -33,6 +33,9 @@ struct Args {
     /// Add a mount-relative denied-directory glob. May be repeated.
     #[arg(long = "deny-directory")]
     deny_directories: Vec<String>,
+    /// Add a mount-relative allowed-directory glob. May be repeated.
+    #[arg(long = "allow-directory")]
+    allow_directories: Vec<String>,
     /// Validate configuration and build the pruned index without mounting.
     #[arg(long)]
     check: bool,
@@ -53,6 +56,10 @@ fn run() -> Result<()> {
         config.oss.bucket_path = bucket_path;
     }
     config.prune.deny_directories.extend(args.deny_directories);
+    config
+        .prune
+        .allow_directories
+        .extend(args.allow_directories);
     config.validate()?;
     if !args.check && cfg!(not(target_os = "linux")) {
         bail!(
@@ -81,7 +88,10 @@ fn run() -> Result<()> {
     );
     let objects = client.list_all(&bucket_path.prefix)?;
     let object_count = objects.len();
-    let pruner = Pruner::new(&config.prune.deny_directories)?;
+    let pruner = Pruner::with_allow(
+        &config.prune.deny_directories,
+        &config.prune.allow_directories,
+    )?;
     let tree = Tree::from_objects(objects, &bucket_path.prefix, &pruner);
     log::info!(
         "index ready: {} OSS objects, {} visible filesystem nodes, {} invalid keys skipped, {} file/directory conflicts hidden",

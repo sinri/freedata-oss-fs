@@ -45,41 +45,63 @@ pub struct Tree {
 #[derive(Clone, Debug)]
 pub struct Pruner {
     denied: GlobSet,
+    allowed: Option<GlobSet>,
 }
 
 impl Pruner {
     pub fn new(patterns: &[String]) -> Result<Self> {
-        let mut builder = GlobSetBuilder::new();
-        for pattern in patterns {
-            let normalized = pattern.trim_matches('/');
-            if normalized.is_empty() {
-                anyhow::bail!(
-                    "empty deny-directory pattern is not allowed (it would hide the root)"
-                );
-            }
-            builder.add(directory_glob(normalized, pattern)?);
-            // `foo/**` intuitively denies foo itself as well as its descendants.
-            if let Some(parent) = normalized.strip_suffix("/**") {
-                if !parent.is_empty() {
-                    builder.add(directory_glob(parent, pattern)?);
-                }
-            }
-        }
+        Self::with_allow(patterns, &[])
+    }
+
+    pub fn with_allow(denied_patterns: &[String], allowed_patterns: &[String]) -> Result<Self> {
         Ok(Self {
-            denied: builder.build()?,
+            denied: directory_glob_set(denied_patterns, "deny")?,
+            allowed: if allowed_patterns.is_empty() {
+                None
+            } else {
+                Some(directory_glob_set(allowed_patterns, "allow")?)
+            },
         })
     }
 
     pub fn denies(&self, relative_directory: &str) -> bool {
         self.denied.is_match(relative_directory.trim_matches('/'))
     }
+
+    fn allows(&self, relative_directory: &str) -> bool {
+        self.allowed
+            .as_ref()
+            .is_none_or(|allowed| allowed.is_match(relative_directory.trim_matches('/')))
+    }
+
+    fn has_allow_list(&self) -> bool {
+        self.allowed.is_some()
+    }
 }
 
-fn directory_glob(pattern: &str, original: &str) -> Result<globset::Glob> {
+fn directory_glob_set(patterns: &[String], rule: &str) -> Result<GlobSet> {
+    let mut builder = GlobSetBuilder::new();
+    for pattern in patterns {
+        let normalized = pattern.trim_matches('/');
+        if normalized.is_empty() {
+            anyhow::bail!("empty {rule}-directory pattern is not allowed");
+        }
+        builder.add(directory_glob(normalized, pattern, rule)?);
+        // `foo/**` intuitively selects foo itself as well as its descendants.
+        if let Some(parent) = normalized.strip_suffix("/**") {
+            if !parent.is_empty() {
+                builder.add(directory_glob(parent, pattern, rule)?);
+            }
+        }
+    }
+    Ok(builder.build()?)
+}
+
+fn directory_glob(pattern: &str, original: &str, rule: &str) -> Result<globset::Glob> {
     GlobBuilder::new(pattern)
         .literal_separator(true)
         .build()
-        .with_context(|| format!("invalid deny-directory glob {original:?}"))
+        .with_context(|| format!("invalid {rule}-directory glob {original:?}"))
 }
 
 impl Tree {
@@ -89,7 +111,12 @@ impl Tree {
         pruner: &Pruner,
     ) -> Self {
         let objects = objects.into_iter().collect::<Vec<_>>();
-        let denied_final_directories = denied_final_directories(&objects, prefix, pruner);
+        let selection = select_directories(&objects, prefix, pruner);
+        let pruned_final_directories = selection
+            .all
+            .difference(&selection.visible)
+            .cloned()
+            .collect::<HashSet<_>>();
         let now = SystemTime::now();
         let root = Node {
             inode: ROOT_INODE,
@@ -107,7 +134,7 @@ impl Tree {
             hidden_conflicts: 0,
         };
         for object in objects {
-            tree.insert_object(object, prefix, pruner, &denied_final_directories);
+            tree.insert_object(object, prefix, &selection, &pruned_final_directories);
         }
         tree
     }
@@ -116,8 +143,8 @@ impl Tree {
         &mut self,
         object: ObjectMeta,
         prefix: &str,
-        pruner: &Pruner,
-        denied_final_directories: &HashSet<String>,
+        selection: &DirectorySelection,
+        pruned_final_directories: &HashSet<String>,
     ) {
         let Some(relative) = object.key.strip_prefix(prefix) else {
             return;
@@ -141,8 +168,8 @@ impl Tree {
             self.skipped_invalid += 1;
             return;
         }
-        if !is_directory_marker && denied_final_directories.contains(&relative) {
-            // The same POSIX path is both an OSS object and a denied synthetic
+        if !is_directory_marker && pruned_final_directories.contains(&relative) {
+            // The same POSIX path is both an OSS object and a pruned synthetic
             // directory. Directory semantics win, so the colliding object must
             // not leak back into the pruned view.
             self.hidden_conflicts += 1;
@@ -161,13 +188,16 @@ impl Tree {
                 directory_path.push('/');
             }
             directory_path.push_str(name);
-            if pruner.denies(&directory_path) {
+            if !selection.visible.contains(&directory_path) {
                 return;
             }
             parent = self.ensure_directory(parent, name, object.modified);
         }
 
         if is_directory_marker {
+            return;
+        }
+        if !selection.allows_files_in(&directory_path) {
             return;
         }
         let name = components[meaningful_len - 1];
@@ -308,12 +338,26 @@ fn valid_posix_component(component: &str) -> bool {
         })
 }
 
-fn denied_final_directories(
-    objects: &[ObjectMeta],
-    prefix: &str,
-    pruner: &Pruner,
-) -> HashSet<String> {
-    let mut denied = HashSet::new();
+#[derive(Debug)]
+struct DirectorySelection {
+    all: HashSet<String>,
+    visible: HashSet<String>,
+    content_allowed: HashSet<String>,
+    root_content_allowed: bool,
+}
+
+impl DirectorySelection {
+    fn allows_files_in(&self, directory: &str) -> bool {
+        if directory.is_empty() {
+            self.root_content_allowed
+        } else {
+            self.content_allowed.contains(directory)
+        }
+    }
+}
+
+fn select_directories(objects: &[ObjectMeta], prefix: &str, pruner: &Pruner) -> DirectorySelection {
+    let mut all = HashSet::new();
     for object in objects {
         let Some(relative) = object.key.strip_prefix(prefix) else {
             continue;
@@ -342,13 +386,41 @@ fn denied_final_directories(
                 path.push('/');
             }
             path.push_str(component);
-            if pruner.denies(&path) {
-                denied.insert(path.clone());
-                break;
+            all.insert(path.clone());
+        }
+    }
+
+    let mut content_allowed = HashSet::new();
+    for directory in &all {
+        if path_prefixes(directory).any(|ancestor| pruner.denies(ancestor)) {
+            continue;
+        }
+        if path_prefixes(directory).any(|ancestor| pruner.allows(ancestor)) {
+            content_allowed.insert(directory.clone());
+        }
+    }
+
+    let mut visible = content_allowed.clone();
+    for directory in &content_allowed {
+        for ancestor in path_prefixes(directory) {
+            if !pruner.denies(ancestor) {
+                visible.insert(ancestor.to_string());
             }
         }
     }
-    denied
+
+    DirectorySelection {
+        all,
+        visible,
+        content_allowed,
+        root_content_allowed: !pruner.has_allow_list(),
+    }
+}
+
+fn path_prefixes(path: &str) -> impl Iterator<Item = &str> {
+    path.match_indices('/')
+        .map(|(index, _)| &path[..index])
+        .chain(std::iter::once(path))
 }
 
 #[cfg(test)]
@@ -434,6 +506,63 @@ mod tests {
             let tree = Tree::from_objects(objects, "", &pruner);
             assert!(tree.child(ROOT_INODE, "archive").is_none());
         }
+    }
+
+    #[test]
+    fn allow_list_keeps_selected_subtrees_and_only_needed_ancestors() {
+        let pruner = Pruner::with_allow(&[], &["docs".into(), "teams/*/public/**".into()]).unwrap();
+        let tree = Tree::from_objects(
+            [
+                object("root.txt", 1),
+                object("docs/readme.txt", 1),
+                object("docs/deep/guide.txt", 1),
+                object("private/hidden.txt", 1),
+                object("teams/index.txt", 1),
+                object("teams/red/public/info.txt", 1),
+                object("teams/red/secret/key.txt", 1),
+            ],
+            "",
+            &pruner,
+        );
+
+        assert!(tree.child(ROOT_INODE, "root.txt").is_none());
+        assert!(tree.child(ROOT_INODE, "private").is_none());
+        let docs = tree.child(ROOT_INODE, "docs").unwrap();
+        assert!(tree.child(docs, "readme.txt").is_some());
+        assert!(tree.child(docs, "deep").is_some());
+        let teams = tree.child(ROOT_INODE, "teams").unwrap();
+        assert!(tree.child(teams, "index.txt").is_none());
+        let red = tree.child(teams, "red").unwrap();
+        assert!(tree.child(red, "secret").is_none());
+        assert!(tree.child(red, "public").is_some());
+    }
+
+    #[test]
+    fn deny_list_takes_precedence_over_allow_list() {
+        let pruner = Pruner::with_allow(&["docs/private".into()], &["docs/**".into()]).unwrap();
+        let tree = Tree::from_objects(
+            [
+                object("docs/public.txt", 1),
+                object("docs/private/hidden.txt", 1),
+            ],
+            "",
+            &pruner,
+        );
+
+        let docs = tree.child(ROOT_INODE, "docs").unwrap();
+        assert!(tree.child(docs, "public.txt").is_some());
+        assert!(tree.child(docs, "private").is_none());
+    }
+
+    #[test]
+    fn pruned_allow_list_directory_does_not_leak_colliding_file() {
+        let pruner = Pruner::with_allow(&[], &["visible".into()]).unwrap();
+        let tree = Tree::from_objects(
+            [object("hidden", 1), object("hidden/file.txt", 1)],
+            "",
+            &pruner,
+        );
+        assert!(tree.child(ROOT_INODE, "hidden").is_none());
     }
 
     #[test]

@@ -62,6 +62,9 @@ oss:
   max_concurrent_requests: 32
 
 prune:
+  allow_directories:
+    - docs/**
+    - teams/*/public/**
   deny_directories:
     - private
     - teams/*/secret
@@ -85,6 +88,9 @@ Bucket 消耗无限内存与时间；大型 Bucket 应根据实测逐项调整�
   `teams/red/secret` 匹配。
 - `*` 不跨 `/`，`**` 可跨任意目录层级。
 - `archive/**` 同时隐藏 `archive` 自身，而不仅是其后代。
+- `allow_directories` 非空时，只显示命中目录的整棵子树和用于到达它们的祖先目录；祖先目录中的
+  文件及未命中的兄弟目录仍然隐藏。空列表表示不启用白名单。
+- `deny_directories` 优先于 `allow_directories`；同时命中时目录及其整棵子树隐藏。
 - 规则大小写敏感。
 - 配置表达的是一次挂载对所有访问者共同可见的目录树，不会根据每次 FUSE 请求的 uid 动态变化。
   不同 Linux 用户需要不同视图时，应以不同配置和挂载点分别启动实例。
@@ -93,6 +99,7 @@ Bucket 消耗无限内存与时间；大型 Bucket 应根据实测逐项调整�
 
 ```bash
 freedata-oss-fs --config /etc/freedata-oss-fs.yaml \
+  --allow-directory 'docs/**' \
   --deny-directory 'temporary/**' \
   /mnt/oss
 ```
